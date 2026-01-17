@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - USE_MOCK_DATA=true
+      - RELIAQUEST_API_KEY=${RELIAQUEST_API_KEY:-}
+      - CORS_ORIGINS=["http://localhost:4200","http://localhost:4201","http://localhost:8080"]
+    volumes:
+      - ./backend/app:/app/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ATT&CK Navigator
+  attack-navigator:
+    build:
+      context: ./frontend/attack-navigator
+      dockerfile: Dockerfile
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/config/attack-config.json:/usr/share/nginx/html/assets/config.json
+
+  # ATLAS Navigator
+  atlas-navigator:
+    build:
+      context: ./frontend/atlas-navigator
+      dockerfile: Dockerfile
+    ports:
+      - "4201:80"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/config/atlas-config.json:/usr/share/nginx/html/assets/config.json
+
+networks:
+  default:
+    name: mitre-attack-network

@@ -1,0 +1,81 @@
+{
+  "versions": [
+    {
+      "name": "ATT&CK v16",
+      "version": "16",
+      "domains": [
+        {
+          "name": "Enterprise",
+          "identifier": "enterprise-attack",
+          "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/enterprise-attack/enterprise-attack.json"]
+        },
+        {
+          "name": "Mobile",
+          "identifier": "mobile-attack",
+          "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/mobile-attack/mobile-attack.json"]
+        },
+        {
+          "name": "ICS",
+          "identifier": "ics-attack",
+          "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/ics-attack/ics-attack.json"]
+        }
+      ]
+    }
+  ],
+  "custom_context_menu_items": [
+    {
+      "label": "View in ATT&CK Website",
+      "url": "https://attack.mitre.org/techniques/$defined_behavior_id$",
+      "subtechnique_url": "https://attack.mitre.org/techniques/$defined_behavior_id$/$sub_technique_id$"
+    }
+  ],
+  "default_layers": {
+    "enabled": true,
+    "urls": [
+      "http://localhost:8000/api/v1/layers/coverage"
+    ]
+  },
+  "features": [
+    {
+      "name": "leave_site_dialog",
+      "enabled": true,
+      "description": "Display a dialog box prompting to confirm before leaving the site."
+    },
+    {
+      "name": "tabs",
+      "enabled": true,
+      "description": "Enable multiple matrix views in tabs"
+    },
+    {
+      "name": "selecting_techniques",
+      "enabled": true,
+      "description": "Enable technique selection"
+    },
+    {
+      "name": "header",
+      "enabled": true,
+      "description": "Display header at top of application"
+    },
+    {
+      "name": "sticky_toolbar",
+      "enabled": true,
+      "description": "Toolbar remains visible when scrolling"
+    },
+    {
+      "name": "layer_controls",
+      "enabled": true,
+      "description": "Enable layer controls"
+    },
+    {
+      "name": "layer_info",
+      "enabled": true,
+      "description": "Show layer name and description"
+    },
+    {
+      "name": "toolbar_controls",
+      "enabled": true,
+      "description": "Show control icons in the toolbar"
+    }
+  ],
+  "comment": "Custom ATT&CK Navigator configuration for security posture visualization"
+}

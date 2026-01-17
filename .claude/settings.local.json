@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:apidocs.myreliaquest.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(chmod:*)",
+      "Bash(python -m venv:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(python3:*)",
+      "Bash(uvicorn:*)",
+      "Bash(curl:*)",
+      "Bash(./setup.sh)",
+      "Bash(bash)",
+      "Bash(export NVM_DIR=\"$HOME/.nvm\")",
+      "Bash([ -s \"$NVM_DIR/nvm.sh\" ])",
+      "Bash(. \"$NVM_DIR/nvm.sh\")",
+      "Bash(nvm install:*)",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(git clone:*)",
+      "Bash(npm install:*)",
+      "Bash(ng serve:*)",
+      "Bash(npx ng serve:*)",
+      "Bash(export NODE_OPTIONS=--openssl-legacy-provider)",
+      "Bash(pkill:*)",
+      "Bash(git checkout:*)",
+      "Bash(git init)"
+    ]
+  }
+}

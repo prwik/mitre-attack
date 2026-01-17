@@ -1,0 +1,87 @@
+"""
+MITRE ATT&CK Navigator API
+
+A FastAPI backend that integrates with security tools (ReliaQuest, etc.)
+to generate ATT&CK Navigator layers for threat visualization.
+"""
+import logging
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+
+from .api import router
+from .utils.config import get_settings
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+settings = get_settings()
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    description="""
+    API for generating MITRE ATT&CK Navigator layers from security tool data.
+
+    ## Features
+    - Fetch detection rules and incidents from ReliaQuest GreyMatter
+    - Calculate detection coverage per ATT&CK technique
+    - Generate Navigator-compatible JSON layers
+    - Support for both ATT&CK and ATLAS frameworks
+
+    ## Layer Types
+    - **Coverage Layer**: Shows detection rule coverage
+    - **Incident Layer**: Heatmap of incident frequency
+    - **Combined Layer**: Both coverage and incidents
+    - **ATLAS Layer**: AI/ML specific techniques
+    """,
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include API routes
+app.include_router(router, prefix=settings.api_prefix, tags=["API"])
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """Redirect root to API documentation."""
+    return RedirectResponse(url="/docs")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Application startup handler."""
+    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    if settings.use_mock_data:
+        logger.warning("Running with mock data - set USE_MOCK_DATA=false for production")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Application shutdown handler."""
+    logger.info("Shutting down application")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=settings.debug,
+    )

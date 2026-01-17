@@ -1,0 +1,70 @@
+{
+  "versions": [
+    {
+      "name": "ATLAS v4",
+      "version": "4",
+      "domains": [
+        {
+          "name": "ATLAS",
+          "identifier": "mitre-atlas",
+          "data": ["https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/stix-atlas.json"]
+        }
+      ]
+    }
+  ],
+  "custom_context_menu_items": [
+    {
+      "label": "View in ATLAS Website",
+      "url": "https://atlas.mitre.org/techniques/$defined_behavior_id$"
+    }
+  ],
+  "default_layers": {
+    "enabled": true,
+    "urls": [
+      "http://localhost:8000/api/v1/layers/atlas"
+    ]
+  },
+  "features": [
+    {
+      "name": "leave_site_dialog",
+      "enabled": true,
+      "description": "Display a dialog box prompting to confirm before leaving the site."
+    },
+    {
+      "name": "tabs",
+      "enabled": true,
+      "description": "Enable multiple matrix views in tabs"
+    },
+    {
+      "name": "selecting_techniques",
+      "enabled": true,
+      "description": "Enable technique selection"
+    },
+    {
+      "name": "header",
+      "enabled": true,
+      "description": "Display header at top of application"
+    },
+    {
+      "name": "sticky_toolbar",
+      "enabled": true,
+      "description": "Toolbar remains visible when scrolling"
+    },
+    {
+      "name": "layer_controls",
+      "enabled": true,
+      "description": "Enable layer controls"
+    },
+    {
+      "name": "layer_info",
+      "enabled": true,
+      "description": "Show layer name and description"
+    },
+    {
+      "name": "toolbar_controls",
+      "enabled": true,
+      "description": "Show control icons in the toolbar"
+    }
+  ],
+  "comment": "Custom ATLAS Navigator configuration for AI/ML threat visualization"
+}
