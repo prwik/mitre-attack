@@ -1,27 +1,30 @@
 {
-  "versions": [
-    {
-      "name": "ATT&CK v16",
-      "version": "16",
-      "domains": [
-        {
-          "name": "Enterprise",
-          "identifier": "enterprise-attack",
-          "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/enterprise-attack/enterprise-attack.json"]
-        },
-        {
-          "name": "Mobile",
-          "identifier": "mobile-attack",
-          "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/mobile-attack/mobile-attack.json"]
-        },
-        {
-          "name": "ICS",
-          "identifier": "ics-attack",
-          "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/ics-attack/ics-attack.json"]
-        }
-      ]
-    }
-  ],
+  "versions": {
+    "enabled": true,
+    "entries": [
+      {
+        "name": "ATT&CK v16",
+        "version": "16",
+        "domains": [
+          {
+            "name": "Enterprise",
+            "identifier": "enterprise-attack",
+            "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/enterprise-attack/enterprise-attack.json"]
+          },
+          {
+            "name": "Mobile",
+            "identifier": "mobile-attack",
+            "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/mobile-attack/mobile-attack.json"]
+          },
+          {
+            "name": "ICS",
+            "identifier": "ics-attack",
+            "data": ["https://raw.githubusercontent.com/mitre/cti/ATT%26CK-v16.0/ics-attack/ics-attack.json"]
+          }
+        ]
+      }
+    ]
+  },
   "custom_context_menu_items": [
     {
       "label": "View in ATT&CK Website",
@@ -77,5 +80,6 @@
       "description": "Show control icons in the toolbar"
     }
   ],
+  "customize_features": [],
   "comment": "Custom ATT&CK Navigator configuration for security posture visualization"
 }

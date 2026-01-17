@@ -38,11 +38,11 @@ services:
       context: ./frontend/atlas-navigator
       dockerfile: Dockerfile
     ports:
-      - "4201:80"
+      - "4201:4200"
     depends_on:
       - backend
     volumes:
-      - ./frontend/config/atlas-config.json:/usr/share/nginx/html/assets/config.json
+      - ./frontend/config/atlas-config.json:/src/nav-app/src/assets/config.json
 
 networks:
   default:
