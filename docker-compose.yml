@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   # Backend API
@@ -26,11 +26,11 @@ services:
       context: ./frontend/attack-navigator
       dockerfile: Dockerfile
     ports:
-      - "4200:80"
+      - "4200:4200"
     depends_on:
       - backend
     volumes:
-      - ./frontend/config/attack-config.json:/usr/share/nginx/html/assets/config.json
+      - ./frontend/config/attack-config2.json:/src/nav-app/src/assets/config.json
 
   # ATLAS Navigator
   atlas-navigator:
@@ -38,7 +38,7 @@ services:
       context: ./frontend/atlas-navigator
       dockerfile: Dockerfile
     ports:
-      - "4201:4200"
+      - "4201:4201"
     depends_on:
       - backend
     volumes:

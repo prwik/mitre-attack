@@ -87,8 +87,15 @@ class LayerGenerator:
             LegendItem(label="Low Coverage (0-29)", color="#ff6666"),
         ]
 
-        # Add techniques
+        # Add techniques (filter to ATT&CK only for enterprise-attack domain)
         for tech_id, cov in coverage.items():
+            # Skip ATLAS techniques for enterprise-attack domain
+            if domain == "enterprise-attack" and tech_id.startswith("AML."):
+                continue
+            # Skip ATT&CK techniques for ATLAS domain
+            if domain == "mitre-atlas" and not tech_id.startswith("AML."):
+                continue
+
             metadata = [
                 Metadata(name="Detection Rules", value=str(cov.detection_count)),
                 Metadata(name="Incidents", value=str(cov.incident_count)),
@@ -150,8 +157,15 @@ class LayerGenerator:
             LegendItem(label="High Frequency", color="#ff0000"),
         ]
 
-        # Add techniques with incidents
+        # Add techniques with incidents (filter by domain)
         for tech_id, cov in coverage.items():
+            # Skip ATLAS techniques for enterprise-attack domain
+            if domain == "enterprise-attack" and tech_id.startswith("AML."):
+                continue
+            # Skip ATT&CK techniques for ATLAS domain
+            if domain == "mitre-atlas" and not tech_id.startswith("AML."):
+                continue
+
             if cov.incident_count > 0:
                 metadata = [
                     Metadata(name="Incident Count", value=str(cov.incident_count)),
@@ -196,6 +210,12 @@ class LayerGenerator:
         colors = self.color_schemes["coverage"]
 
         for tech_id, cov in coverage.items():
+            # Skip ATLAS techniques for enterprise-attack domain
+            if domain == "enterprise-attack" and tech_id.startswith("AML."):
+                continue
+            # Skip ATT&CK techniques for ATLAS domain
+            if domain == "mitre-atlas" and not tech_id.startswith("AML."):
+                continue
             # Determine color based on coverage
             score = cov.coverage_score
             if score >= 70:
