@@ -45,7 +45,6 @@ async def health_check():
 @router.get("/detection-rules", response_model=list[DetectionRule])
 async def get_detection_rules(
     limit: int = Query(100, ge=1, le=1000),
-    enabled_only: bool = Query(True),
     client: ReliaQuestClient = Depends(get_reliaquest_client),
 ):
     """
@@ -54,7 +53,7 @@ async def get_detection_rules(
     Returns detection rules with their ATT&CK technique mappings.
     """
     try:
-        rules = await client.get_detection_rules(limit=limit, enabled_only=enabled_only)
+        rules = await client.get_detection_rules(limit=limit)
         return rules
     except Exception as e:
         logger.error(f"Failed to fetch detection rules: {e}")
@@ -64,7 +63,6 @@ async def get_detection_rules(
 @router.get("/incidents", response_model=list[Incident])
 async def get_incidents(
     limit: int = Query(100, ge=1, le=1000),
-    status: Optional[str] = Query(None),
     days: int = Query(30, ge=1, le=365),
     client: ReliaQuestClient = Depends(get_reliaquest_client),
 ):
@@ -72,10 +70,14 @@ async def get_incidents(
     Fetch incidents from ReliaQuest.
 
     Returns incidents with their ATT&CK technique mappings.
+    Techniques are populated from linked detection rules.
     """
     try:
         since = datetime.utcnow() - __import__("datetime").timedelta(days=days)
-        incidents = await client.get_incidents(limit=limit, status=status, since=since)
+        # Fetch rules first to build cache for technique lookup
+        rules = await client.get_detection_rules(limit=1000)
+        rules_cache = {rule.slug: rule for rule in rules if rule.slug}
+        incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
         return incidents
     except Exception as e:
         logger.error(f"Failed to fetch incidents: {e}")
@@ -96,8 +98,9 @@ async def get_coverage(
     """
     try:
         rules = await client.get_detection_rules(limit=limit)
+        rules_cache = {rule.slug: rule for rule in rules if rule.slug}
         since = datetime.utcnow() - __import__("datetime").timedelta(days=days)
-        incidents = await client.get_incidents(limit=limit, since=since)
+        incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
         return coverage
@@ -118,8 +121,9 @@ async def get_coverage_summary(
     """
     try:
         rules = await client.get_detection_rules(limit=limit)
+        rules_cache = {rule.slug: rule for rule in rules if rule.slug}
         since = datetime.utcnow() - __import__("datetime").timedelta(days=days)
-        incidents = await client.get_incidents(limit=limit, since=since)
+        incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
         summary = mapper.get_coverage_summary(coverage)
@@ -146,8 +150,9 @@ async def get_coverage_layer(
     """
     try:
         rules = await client.get_detection_rules(limit=limit)
+        rules_cache = {rule.slug: rule for rule in rules if rule.slug}
         since = datetime.utcnow() - __import__("datetime").timedelta(days=days)
-        incidents = await client.get_incidents(limit=limit, since=since)
+        incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
         layer = generator.generate_coverage_layer(
@@ -185,8 +190,9 @@ async def get_incident_layer(
     """
     try:
         rules = await client.get_detection_rules(limit=limit)
+        rules_cache = {rule.slug: rule for rule in rules if rule.slug}
         since = datetime.utcnow() - __import__("datetime").timedelta(days=days)
-        incidents = await client.get_incidents(limit=limit, since=since)
+        incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
         layer = generator.generate_incident_layer(
@@ -221,8 +227,9 @@ async def get_combined_layer(
     """
     try:
         rules = await client.get_detection_rules(limit=limit)
+        rules_cache = {rule.slug: rule for rule in rules if rule.slug}
         since = datetime.utcnow() - __import__("datetime").timedelta(days=days)
-        incidents = await client.get_incidents(limit=limit, since=since)
+        incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
         layer = generator.generate_combined_layer(
@@ -256,8 +263,9 @@ async def get_atlas_layer(
     """
     try:
         rules = await client.get_detection_rules(limit=limit)
+        rules_cache = {rule.slug: rule for rule in rules if rule.slug}
         since = datetime.utcnow() - __import__("datetime").timedelta(days=days)
-        incidents = await client.get_incidents(limit=limit, since=since)
+        incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
         layer = generator.generate_atlas_layer(coverage, name=name)

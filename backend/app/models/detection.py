@@ -13,18 +13,29 @@ class TechniqueMapping(BaseModel):
     tactic: Optional[str] = None
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     source: str = Field(default="manual", description="Source of the mapping")
+    # ReliaQuest-specific IDs (these are NOT MITRE IDs)
+    reliaquest_technique_id: Optional[str] = Field(
+        default=None, description="ReliaQuest internal technique ID"
+    )
+    reliaquest_tactic_id: Optional[str] = Field(
+        default=None, description="ReliaQuest internal tactic ID"
+    )
+    # Flag to indicate if the technique_id has been resolved to a MITRE ID
+    mitre_id_resolved: bool = Field(
+        default=False, description="Whether technique_id contains actual MITRE ID"
+    )
 
 
 class DetectionRule(BaseModel):
     """Detection rule from security tools (e.g., ReliaQuest, Splunk, etc.)."""
     id: str
     name: str
+    slug: str = ""
     description: str = ""
     severity: str = "medium"
-    enabled: bool = True
+    log_source_types: list[str] = Field(default_factory=list)
     source: str = Field(..., description="Source system (e.g., reliaquest, splunk)")
     techniques: list[TechniqueMapping] = Field(default_factory=list)
-    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     raw_data: Optional[dict] = None
 
@@ -35,18 +46,32 @@ class DetectionRule(BaseModel):
 
 
 class Incident(BaseModel):
-    """Security incident from SIEM/XDR platforms."""
+    """Security incident from SIEM/XDR platforms (e.g., ReliaQuest GreyMatter)."""
     id: str
+    ticket_number: str = ""
     title: str
     description: str = ""
+    summary: str = ""
     severity: str = "medium"
-    status: str = "open"
+    state: str = "open"
+    incident_type: str = ""
+    category: str = ""
     source: str = Field(..., description="Source system")
     techniques: list[TechniqueMapping] = Field(default_factory=list)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
-    assignee: Optional[str] = None
+    close_code: Optional[str] = None
+    close_note: Optional[str] = None
+    escalated_at: Optional[datetime] = None
+    originator: Optional[str] = None
+    log_source_type: Optional[str] = None
+    internal_only: bool = False
+    acknowledgement: Optional[str] = None
+    # Linked detection rule info
+    rule_id: Optional[str] = Field(default=None, description="Linked detection rule slug")
+    rule_name: Optional[str] = None
+    rule_version: Optional[str] = None
     raw_data: Optional[dict] = None
 
     @property

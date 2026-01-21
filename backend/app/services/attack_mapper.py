@@ -9,6 +9,7 @@ from typing import Optional
 from collections import defaultdict
 
 from ..models.detection import DetectionRule, Incident, TechniqueMapping, DetectionCoverage
+from .mitre_id_resolver import MitreIdResolver, get_mitre_id_resolver
 
 logger = logging.getLogger(__name__)
 
@@ -62,19 +63,102 @@ class AttackMapper:
         "impact",
     ]
 
-    def __init__(self):
+    def __init__(self, mitre_resolver: Optional[MitreIdResolver] = None):
         self._coverage_cache: dict[str, DetectionCoverage] = {}
+        self._resolver = mitre_resolver
+
+    @property
+    def resolver(self) -> MitreIdResolver:
+        """Get the MITRE ID resolver, initializing lazily if needed."""
+        if self._resolver is None:
+            self._resolver = get_mitre_id_resolver()
+        return self._resolver
+
+    def resolve_technique_mapping(self, mapping: TechniqueMapping) -> TechniqueMapping:
+        """
+        Resolve a TechniqueMapping to use actual MITRE IDs.
+
+        ReliaQuest returns their own internal IDs for techniques. This method
+        uses the technique name to look up the actual MITRE ID (e.g., T1059.001).
+
+        Args:
+            mapping: TechniqueMapping with potentially non-MITRE IDs
+
+        Returns:
+            Updated TechniqueMapping with resolved MITRE technique_id
+        """
+        # If already resolved or already a valid MITRE ID, skip
+        if mapping.mitre_id_resolved:
+            return mapping
+
+        if self.resolver.is_valid_technique_id(mapping.technique_id):
+            # Already a valid MITRE ID
+            mapping.mitre_id_resolved = True
+            return mapping
+
+        # Try to resolve by technique name
+        if mapping.technique_name:
+            mitre_id = self.resolver.resolve_technique_id(mapping.technique_name)
+            if mitre_id:
+                logger.debug(
+                    f"Resolved '{mapping.technique_name}' -> {mitre_id} "
+                    f"(was: {mapping.technique_id})"
+                )
+                mapping.technique_id = mitre_id
+                mapping.mitre_id_resolved = True
+                return mapping
+
+        # Could not resolve - log warning and keep original ID
+        logger.warning(
+            f"Could not resolve technique to MITRE ID: "
+            f"name='{mapping.technique_name}', id='{mapping.technique_id}'"
+        )
+        return mapping
+
+    def resolve_all_techniques(
+        self,
+        rules: list[DetectionRule],
+        incidents: list[Incident],
+    ) -> tuple[list[DetectionRule], list[Incident]]:
+        """
+        Resolve all technique mappings in rules and incidents to MITRE IDs.
+
+        This should be called before calculate_coverage to ensure all
+        technique_ids are actual MITRE IDs.
+        """
+        # Resolve rules
+        for rule in rules:
+            for i, mapping in enumerate(rule.techniques):
+                rule.techniques[i] = self.resolve_technique_mapping(mapping)
+
+        # Resolve incidents
+        for incident in incidents:
+            for i, mapping in enumerate(incident.techniques):
+                incident.techniques[i] = self.resolve_technique_mapping(mapping)
+
+        return rules, incidents
 
     def calculate_coverage(
         self,
         rules: list[DetectionRule],
         incidents: list[Incident],
+        resolve_ids: bool = True,
     ) -> dict[str, DetectionCoverage]:
         """
         Calculate detection coverage per technique.
 
-        Returns a dict of technique_id -> DetectionCoverage
+        Args:
+            rules: Detection rules from security tools
+            incidents: Security incidents
+            resolve_ids: If True, resolve ReliaQuest IDs to MITRE IDs first
+
+        Returns:
+            Dict of technique_id -> DetectionCoverage
         """
+        # Resolve technique IDs first if requested
+        if resolve_ids:
+            rules, incidents = self.resolve_all_techniques(rules, incidents)
+
         coverage: dict[str, DetectionCoverage] = defaultdict(
             lambda: DetectionCoverage(technique_id="")
         )
@@ -83,18 +167,25 @@ class AttackMapper:
         for rule in rules:
             for mapping in rule.techniques:
                 tech_id = mapping.technique_id
+                # Skip unresolved/invalid technique IDs
+                if not tech_id or not self.resolver.is_valid_technique_id(tech_id):
+                    logger.debug(f"Skipping invalid technique ID: {tech_id}")
+                    continue
+
                 if tech_id not in coverage:
+                    # Normalize tactic name for ATT&CK Navigator
+                    tactic = self._normalize_tactic(mapping.tactic)
                     coverage[tech_id] = DetectionCoverage(
                         technique_id=tech_id,
                         technique_name=mapping.technique_name,
-                        tactic=mapping.tactic,
+                        tactic=tactic,
                     )
                 cov = coverage[tech_id]
                 cov.detection_count += 1
                 if mapping.technique_name and not cov.technique_name:
                     cov.technique_name = mapping.technique_name
                 if mapping.tactic and not cov.tactic:
-                    cov.tactic = mapping.tactic
+                    cov.tactic = self._normalize_tactic(mapping.tactic)
                 if rule.source not in cov.sources:
                     cov.sources.append(rule.source)
 
@@ -102,18 +193,24 @@ class AttackMapper:
         for incident in incidents:
             for mapping in incident.techniques:
                 tech_id = mapping.technique_id
+                # Skip unresolved/invalid technique IDs
+                if not tech_id or not self.resolver.is_valid_technique_id(tech_id):
+                    logger.debug(f"Skipping invalid technique ID: {tech_id}")
+                    continue
+
                 if tech_id not in coverage:
+                    tactic = self._normalize_tactic(mapping.tactic)
                     coverage[tech_id] = DetectionCoverage(
                         technique_id=tech_id,
                         technique_name=mapping.technique_name,
-                        tactic=mapping.tactic,
+                        tactic=tactic,
                     )
                 cov = coverage[tech_id]
                 cov.incident_count += 1
                 if mapping.technique_name and not cov.technique_name:
                     cov.technique_name = mapping.technique_name
                 if mapping.tactic and not cov.tactic:
-                    cov.tactic = mapping.tactic
+                    cov.tactic = self._normalize_tactic(mapping.tactic)
                 if incident.source not in cov.sources:
                     cov.sources.append(incident.source)
 
@@ -123,6 +220,16 @@ class AttackMapper:
 
         self._coverage_cache = dict(coverage)
         return dict(coverage)
+
+    def _normalize_tactic(self, tactic: Optional[str]) -> Optional[str]:
+        """
+        Normalize tactic name to ATT&CK Navigator format.
+
+        E.g., "Initial Access" -> "initial-access"
+        """
+        if not tactic:
+            return None
+        return tactic.lower().replace(" ", "-").replace("_", "-")
 
     def get_techniques_by_tactic(
         self,

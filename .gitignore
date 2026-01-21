@@ -1,5 +1,6 @@
 .claude/
 .venv/
+.env
 backend/venv/
 backend/.venv/
 __pycache__/
