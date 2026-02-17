@@ -11,9 +11,10 @@ services:
     environment:
       - USE_MOCK_DATA=true
       - RELIAQUEST_API_KEY=${RELIAQUEST_API_KEY:-}
-      - CORS_ORIGINS=["http://localhost:4200","http://localhost:4201","http://localhost:8080"]
+      - CORS_ORIGINS=http://localhost:4200,http://localhost:4201,http://localhost:8080
     volumes:
       - ./backend/app:/app/app
+      - mitre-cache:/app/cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 30s
@@ -24,25 +25,28 @@ services:
   attack-navigator:
     build:
       context: ./frontend/attack-navigator
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "4200:4200"
     depends_on:
       - backend
     volumes:
-      - ./frontend/config/attack-config2.json:/src/nav-app/src/assets/config.json
+      - ./frontend/config/attack-config.json:/src/nav-app/src/assets/config.json
 
-  # ATLAS Navigator
-  atlas-navigator:
-    build:
-      context: ./frontend/atlas-navigator
-      dockerfile: Dockerfile
-    ports:
-      - "4201:4201"
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend/config/atlas-config.json:/src/nav-app/src/assets/config.json
+  # ATLAS Navigator (disabled - enable when ATLAS frontend is ready)
+  #atlas-navigator:
+  #  build:
+  #    context: ./frontend/atlas-navigator
+  #    dockerfile: Dockerfile
+  #  ports:
+  #    - "4201:4201"
+  #  depends_on:
+  #    - backend
+  #  volumes:
+  #    - ./frontend/config/atlas-config.json:/src/nav-app/src/assets/config.json
+
+volumes:
+  mitre-cache:
 
 networks:
   default:

@@ -10,18 +10,30 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from .api import router
+from .api.routes import limiter
 from .utils.config import get_settings
 
+settings = get_settings()
+
 # Configure logging
+log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-settings = get_settings()
+openapi_tags = [
+    {"name": "Health", "description": "Health check and status endpoints"},
+    {"name": "Detection Rules", "description": "Detection rule management"},
+    {"name": "Incidents", "description": "Incident data retrieval"},
+    {"name": "Coverage", "description": "Detection coverage analysis"},
+    {"name": "Layers", "description": "ATT&CK Navigator layer generation"},
+]
 
 
 @asynccontextmanager
@@ -55,7 +67,12 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
+    openapi_tags=openapi_tags,
 )
+
+# Configure rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS
 app.add_middleware(
@@ -67,7 +84,7 @@ app.add_middleware(
 )
 
 # Include API routes
-app.include_router(router, prefix=settings.api_prefix, tags=["API"])
+app.include_router(router, prefix=settings.api_prefix)
 
 
 @app.get("/", include_in_schema=False)

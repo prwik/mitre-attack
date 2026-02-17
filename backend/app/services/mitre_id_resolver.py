@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -32,8 +33,9 @@ class MitreIdResolver:
     ENTERPRISE_ATTACK_URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
     # ATLAS data needs to be loaded separately if needed
 
-    # Cache directory for downloaded STIX data
-    CACHE_DIR = Path(tempfile.gettempdir()) / "mitre_attack_cache"
+    # Cache directory for downloaded STIX data - prefer /app/cache (Docker volume) if available
+    _DOCKER_CACHE = Path("/app/cache")
+    CACHE_DIR = _DOCKER_CACHE if _DOCKER_CACHE.is_dir() else Path(tempfile.gettempdir()) / "mitre_attack_cache"
 
     def __init__(self, stix_filepath: Optional[str] = None):
         """
@@ -323,12 +325,16 @@ class MitreIdResolver:
 
 # Singleton instance for easy access
 _resolver_instance: Optional[MitreIdResolver] = None
+_resolver_lock = threading.Lock()
 
 
 def get_mitre_id_resolver() -> MitreIdResolver:
     """Get the singleton MitreIdResolver instance."""
     global _resolver_instance
     if _resolver_instance is None:
-        _resolver_instance = MitreIdResolver()
-        _resolver_instance.initialize()
+        with _resolver_lock:
+            if _resolver_instance is None:
+                resolver = MitreIdResolver()
+                resolver.initialize()
+                _resolver_instance = resolver
     return _resolver_instance

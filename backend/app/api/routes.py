@@ -2,11 +2,14 @@
 API routes for the ATT&CK Navigator backend.
 """
 import logging
+import threading
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, Request
 from fastapi.responses import JSONResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ..models.layer import NavigatorLayer
 from ..models.detection import DetectionRule, Incident, DetectionCoverage
@@ -18,6 +21,8 @@ from ..utils.config import get_settings, Settings
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+limiter = Limiter(key_func=get_remote_address)
+
 
 def _safe_error_detail(e: Exception, settings: Settings | None = None) -> str:
     """Return error detail safe for API responses. Only expose internals in debug mode."""
@@ -27,19 +32,22 @@ def _safe_error_detail(e: Exception, settings: Settings | None = None) -> str:
 
 # Shared client instance so TTLCache persists across requests
 _reliaquest_client: ReliaQuestClient | None = None
+_reliaquest_client_lock = threading.Lock()
 
 
 def get_reliaquest_client(settings: Settings = Depends(get_settings)) -> ReliaQuestClient:
     """Dependency to get ReliaQuest client (singleton per process)."""
     global _reliaquest_client
     if _reliaquest_client is None:
-        if settings.use_mock_data:
-            _reliaquest_client = MockReliaQuestClient()
-        else:
-            _reliaquest_client = ReliaQuestClient(
-                api_key=settings.reliaquest_api_key,
-                cache_ttl=settings.cache_ttl,
-            )
+        with _reliaquest_client_lock:
+            if _reliaquest_client is None:
+                if settings.use_mock_data:
+                    _reliaquest_client = MockReliaQuestClient()
+                else:
+                    _reliaquest_client = ReliaQuestClient(
+                        api_key=settings.reliaquest_api_key,
+                        cache_ttl=settings.cache_ttl,
+                    )
     return _reliaquest_client
 
 
@@ -53,15 +61,33 @@ def get_layer_generator() -> LayerGenerator:
     return LayerGenerator()
 
 
-@router.get("/health")
+@router.get("/health", tags=["Health"])
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+    """Health check endpoint with dependency status."""
+    from ..services.mitre_id_resolver import _resolver_instance
+
+    dependencies = {}
+    status = "healthy"
+
+    if _resolver_instance is not None:
+        dependencies["mitre_id_resolver"] = "available"
+    else:
+        dependencies["mitre_id_resolver"] = "unavailable"
+        status = "degraded"
+
+    return {
+        "status": status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "dependencies": dependencies,
+    }
 
 
-@router.get("/detection-rules", response_model=list[DetectionRule])
+@router.get("/detection-rules", response_model=list[DetectionRule], tags=["Detection Rules"])
+@limiter.limit("60/minute")
 async def get_detection_rules(
+    request: Request,
     limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     client: ReliaQuestClient = Depends(get_reliaquest_client),
     settings: Settings = Depends(get_settings),
 ):
@@ -72,16 +98,19 @@ async def get_detection_rules(
     """
     try:
         rules = await client.get_detection_rules(limit=limit)
-        return rules
+        return rules[offset:]
     except Exception as e:
         logger.error(f"Failed to fetch detection rules: {e}")
         raise HTTPException(status_code=500, detail=_safe_error_detail(e, settings))
 
 
-@router.get("/incidents", response_model=list[Incident])
+@router.get("/incidents", response_model=list[Incident], tags=["Incidents"])
+@limiter.limit("60/minute")
 async def get_incidents(
+    request: Request,
     limit: int = Query(100, ge=1, le=1000),
     days: int = Query(30, ge=1, le=365),
+    offset: int = Query(0, ge=0),
     client: ReliaQuestClient = Depends(get_reliaquest_client),
     settings: Settings = Depends(get_settings),
 ):
@@ -97,14 +126,16 @@ async def get_incidents(
         rules = await client.get_detection_rules(limit=1000)
         rules_cache = {rule.slug: rule for rule in rules if rule.slug}
         incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
-        return incidents
+        return incidents[offset:]
     except Exception as e:
         logger.error(f"Failed to fetch incidents: {e}")
         raise HTTPException(status_code=500, detail=_safe_error_detail(e, settings))
 
 
-@router.get("/coverage", response_model=dict[str, DetectionCoverage])
+@router.get("/coverage", response_model=dict[str, DetectionCoverage], tags=["Coverage"])
+@limiter.limit("60/minute")
 async def get_coverage(
+    request: Request,
     limit: int = Query(100, ge=1, le=1000),
     days: int = Query(30, ge=1, le=365),
     client: ReliaQuestClient = Depends(get_reliaquest_client),
@@ -129,8 +160,10 @@ async def get_coverage(
         raise HTTPException(status_code=500, detail=_safe_error_detail(e, settings))
 
 
-@router.get("/coverage/summary")
+@router.get("/coverage/summary", tags=["Coverage"])
+@limiter.limit("60/minute")
 async def get_coverage_summary(
+    request: Request,
     limit: int = Query(100, ge=1, le=1000),
     days: int = Query(30, ge=1, le=365),
     client: ReliaQuestClient = Depends(get_reliaquest_client),
@@ -154,8 +187,10 @@ async def get_coverage_summary(
         raise HTTPException(status_code=500, detail=_safe_error_detail(e, settings))
 
 
-@router.get("/layers/coverage")
+@router.get("/layers/coverage", tags=["Layers"])
+@limiter.limit("60/minute")
 async def get_coverage_layer(
+    request: Request,
     name: str = Query("Detection Coverage"),
     domain: str = Query("enterprise-attack"),
     limit: int = Query(100, ge=1, le=1000),
@@ -195,8 +230,10 @@ async def get_coverage_layer(
         raise HTTPException(status_code=500, detail=_safe_error_detail(e, settings))
 
 
-@router.get("/layers/incidents")
+@router.get("/layers/incidents", tags=["Layers"])
+@limiter.limit("60/minute")
 async def get_incident_layer(
+    request: Request,
     name: str = Query("Incident Heatmap"),
     domain: str = Query("enterprise-attack"),
     limit: int = Query(100, ge=1, le=1000),
@@ -233,8 +270,10 @@ async def get_incident_layer(
         raise HTTPException(status_code=500, detail=_safe_error_detail(e, settings))
 
 
-@router.get("/layers/combined")
+@router.get("/layers/combined", tags=["Layers"])
+@limiter.limit("60/minute")
 async def get_combined_layer(
+    request: Request,
     name: str = Query("Security Posture"),
     domain: str = Query("enterprise-attack"),
     limit: int = Query(100, ge=1, le=1000),
@@ -271,8 +310,10 @@ async def get_combined_layer(
         raise HTTPException(status_code=500, detail=_safe_error_detail(e, settings))
 
 
-@router.get("/layers/atlas")
+@router.get("/layers/atlas", tags=["Layers"])
+@limiter.limit("60/minute")
 async def get_atlas_layer(
+    request: Request,
     name: str = Query("AI/ML Threat Coverage"),
     limit: int = Query(100, ge=1, le=1000),
     days: int = Query(30, ge=1, le=365),
@@ -304,15 +345,23 @@ async def get_atlas_layer(
         raise HTTPException(status_code=500, detail=_safe_error_detail(e, settings))
 
 
-@router.post("/layers/custom")
+@router.post("/layers/custom", tags=["Layers"])
+@limiter.limit("60/minute")
 async def create_custom_layer(
+    request: Request,
     layer: NavigatorLayer,
 ):
     """
     Create a custom layer with user-provided data.
 
     Accepts a NavigatorLayer object and returns the formatted JSON.
+    Techniques list is capped at 5000 items.
     """
+    if len(layer.techniques) > 5000:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Too many techniques: {len(layer.techniques)} (max 5000)",
+        )
     return JSONResponse(
         content=layer.to_json(),
         media_type="application/json",

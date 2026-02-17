@@ -175,6 +175,17 @@ class TestMergeLayers:
         merged = self.gen.merge_layers([l1, l2], aggregate="avg")
         assert merged.techniques[0].score == 50
 
+    def test_merge_avg_non_truncating(self):
+        """Verify avg uses true division, not floor division."""
+        l1 = NavigatorLayer(name="L1")
+        l1.add_technique("T1059", score=30)
+        l2 = NavigatorLayer(name="L2")
+        l2.add_technique("T1059", score=71)
+        merged = self.gen.merge_layers([l1, l2], aggregate="avg")
+        # (30 + 71) / 2 = 50.5 -> int() truncates to 50
+        assert merged.techniques[0].score == 50
+        assert isinstance(merged.techniques[0].score, int)
+
     def test_merge_sum(self):
         l1 = NavigatorLayer(name="L1")
         l1.add_technique("T1059", score=30)

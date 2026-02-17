@@ -3,7 +3,7 @@ ATT&CK Navigator Layer format models (v4.5 spec).
 See: https://github.com/mitre-attack/attack-navigator/blob/master/layers/
 """
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Metadata(BaseModel):
@@ -90,6 +90,14 @@ class NavigatorLayer(BaseModel):
     layout: Layout = Field(default_factory=Layout)
     hideDisabled: bool = False
     techniques: list[Technique] = Field(default_factory=list)
+
+    @field_validator("techniques")
+    @classmethod
+    def validate_techniques_count(cls, v):
+        if len(v) > 5000:
+            raise ValueError(f"Too many techniques: {len(v)} (max 5000)")
+        return v
+
     gradient: Gradient = Field(default_factory=Gradient)
     legendItems: list[LegendItem] = Field(default_factory=list)
     showTacticRowBackground: bool = False

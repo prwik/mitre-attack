@@ -345,7 +345,7 @@ class LayerGenerator:
                 elif aggregate == "min":
                     score = min(scores)
                 elif aggregate == "avg":
-                    score = sum(scores) // len(scores)
+                    score = int(sum(scores) / len(scores))
                 else:  # sum
                     score = sum(scores)
             else:

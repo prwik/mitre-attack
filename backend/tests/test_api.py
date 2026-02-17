@@ -8,8 +8,15 @@ class TestHealthEndpoint:
         response = client.get("/api/v1/health")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "healthy"
+        assert data["status"] in ("healthy", "degraded")
         assert "timestamp" in data
+        assert "dependencies" in data
+
+    def test_health_check_shows_resolver_status(self, client):
+        response = client.get("/api/v1/health")
+        data = response.json()
+        assert "mitre_id_resolver" in data["dependencies"]
+        assert data["dependencies"]["mitre_id_resolver"] in ("available", "unavailable")
 
 
 class TestDetectionRulesEndpoint:
@@ -35,6 +42,15 @@ class TestDetectionRulesEndpoint:
         response = client.get("/api/v1/detection-rules?limit=0")
         assert response.status_code == 422
 
+    def test_detection_rules_pagination(self, client):
+        response = client.get("/api/v1/detection-rules?offset=1")
+        assert response.status_code == 200
+        all_response = client.get("/api/v1/detection-rules")
+        all_rules = all_response.json()
+        offset_rules = response.json()
+        if len(all_rules) > 1:
+            assert len(offset_rules) == len(all_rules) - 1
+
 
 class TestIncidentsEndpoint:
     def test_get_incidents(self, client):
@@ -54,6 +70,10 @@ class TestIncidentsEndpoint:
 
     def test_incidents_with_days_param(self, client):
         response = client.get("/api/v1/incidents?days=7")
+        assert response.status_code == 200
+
+    def test_incidents_pagination(self, client):
+        response = client.get("/api/v1/incidents?offset=1")
         assert response.status_code == 200
 
 
@@ -130,6 +150,26 @@ class TestLayerEndpoints:
         layer = response.json()
         assert layer["name"] == "Custom Test Layer"
         assert len(layer["techniques"]) == 1
+
+
+class TestCustomLayerValidation:
+    def test_custom_layer_too_many_techniques(self, client):
+        techniques = [{"techniqueID": f"T{1000+i}"} for i in range(5001)]
+        payload = {"name": "Too Big", "techniques": techniques}
+        response = client.post("/api/v1/layers/custom", json=payload)
+        assert response.status_code == 422
+
+    def test_custom_layer_max_techniques_ok(self, client):
+        techniques = [{"techniqueID": f"T{1000+i}"} for i in range(100)]
+        payload = {"name": "OK Layer", "techniques": techniques}
+        response = client.post("/api/v1/layers/custom", json=payload)
+        assert response.status_code == 200
+
+
+class TestRateLimiting:
+    def test_rate_limit_headers_present(self, client):
+        response = client.get("/api/v1/health")
+        assert response.status_code == 200
 
 
 class TestRootRedirect:

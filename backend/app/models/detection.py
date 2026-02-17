@@ -5,6 +5,12 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 
+# Coverage score constants
+DETECTION_SCORE_WEIGHT = 20
+MAX_DETECTION_SCORE = 60
+INCIDENT_SCORE_WEIGHT = 10
+MAX_INCIDENT_SCORE = 40
+
 
 class TechniqueMapping(BaseModel):
     """Mapping of a detection/incident to ATT&CK technique."""
@@ -93,6 +99,6 @@ class DetectionCoverage(BaseModel):
     @property
     def coverage_score(self) -> int:
         """Calculate coverage score (0-100)."""
-        base_score = min(self.detection_count * 20, 60)
-        incident_bonus = min(self.incident_count * 10, 40)
+        base_score = min(self.detection_count * DETECTION_SCORE_WEIGHT, MAX_DETECTION_SCORE)
+        incident_bonus = min(self.incident_count * INCIDENT_SCORE_WEIGHT, MAX_INCIDENT_SCORE)
         return min(base_score + incident_bonus, 100)

@@ -4,6 +4,10 @@ from app.models.detection import (
     DetectionRule,
     Incident,
     DetectionCoverage,
+    DETECTION_SCORE_WEIGHT,
+    MAX_DETECTION_SCORE,
+    INCIDENT_SCORE_WEIGHT,
+    MAX_INCIDENT_SCORE,
 )
 from app.models.layer import (
     NavigatorLayer,
@@ -96,6 +100,16 @@ class TestDetectionCoverage:
         cov = DetectionCoverage(technique_id="T1059", incident_count=2)
         # base: 0, bonus: 20 -> 20
         assert cov.coverage_score == 20
+
+    def test_coverage_score_uses_constants(self):
+        """Verify coverage score uses the extracted constants."""
+        assert DETECTION_SCORE_WEIGHT == 20
+        assert MAX_DETECTION_SCORE == 60
+        assert INCIDENT_SCORE_WEIGHT == 10
+        assert MAX_INCIDENT_SCORE == 40
+        cov = DetectionCoverage(technique_id="T1059", detection_count=1, incident_count=1)
+        expected = min(1 * DETECTION_SCORE_WEIGHT, MAX_DETECTION_SCORE) + min(1 * INCIDENT_SCORE_WEIGHT, MAX_INCIDENT_SCORE)
+        assert cov.coverage_score == expected
 
 
 class TestNavigatorLayer:

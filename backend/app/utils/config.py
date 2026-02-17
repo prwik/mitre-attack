@@ -1,9 +1,11 @@
 """
 Application configuration using Pydantic Settings.
 """
+import json
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,12 +22,27 @@ class Settings(BaseSettings):
     app_name: str = "MITRE ATT&CK Navigator API"
     app_version: str = "1.0.0"
     debug: bool = False
+    log_level: str = "INFO"
 
     # API settings
     api_prefix: str = "/api/v1"
 
     # CORS settings
     cors_origins: list[str] = ["http://localhost:4200", "http://localhost:3000"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Handle both comma-separated strings and JSON arrays from env."""
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     # ReliaQuest API settings
     reliaquest_api_key: str = ""
