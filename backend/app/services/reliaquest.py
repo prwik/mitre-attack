@@ -6,7 +6,7 @@ The API uses GraphQL over HTTPS with API key authentication.
 """
 import logging
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from cachetools import TTLCache
@@ -191,7 +191,7 @@ class ReliaQuestClient:
         automatically populate techniques from linked rules.
         """
         if since is None:
-            since = datetime.utcnow() - timedelta(days=30)
+            since = datetime.now(timezone.utc) - timedelta(days=30)
 
         cache_key = f"incidents:{limit}:{since.date().isoformat()}"
         if cache_key in self._cache:

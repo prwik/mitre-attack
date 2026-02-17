@@ -3,7 +3,7 @@ API routes for the ATT&CK Navigator backend.
 """
 import logging
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi.responses import JSONResponse
@@ -56,7 +56,7 @@ def get_layer_generator() -> LayerGenerator:
 @router.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @router.get("/detection-rules", response_model=list[DetectionRule])
@@ -92,7 +92,7 @@ async def get_incidents(
     Techniques are populated from linked detection rules.
     """
     try:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         # Fetch rules first to build cache for technique lookup
         rules = await client.get_detection_rules(limit=1000)
         rules_cache = {rule.slug: rule for rule in rules if rule.slug}
@@ -119,7 +119,7 @@ async def get_coverage(
     try:
         rules = await client.get_detection_rules(limit=limit)
         rules_cache = {rule.slug: rule for rule in rules if rule.slug}
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
@@ -143,7 +143,7 @@ async def get_coverage_summary(
     try:
         rules = await client.get_detection_rules(limit=limit)
         rules_cache = {rule.slug: rule for rule in rules if rule.slug}
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
@@ -173,7 +173,7 @@ async def get_coverage_layer(
     try:
         rules = await client.get_detection_rules(limit=limit)
         rules_cache = {rule.slug: rule for rule in rules if rule.slug}
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
@@ -214,7 +214,7 @@ async def get_incident_layer(
     try:
         rules = await client.get_detection_rules(limit=limit)
         rules_cache = {rule.slug: rule for rule in rules if rule.slug}
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
@@ -252,7 +252,7 @@ async def get_combined_layer(
     try:
         rules = await client.get_detection_rules(limit=limit)
         rules_cache = {rule.slug: rule for rule in rules if rule.slug}
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
@@ -289,7 +289,7 @@ async def get_atlas_layer(
     try:
         rules = await client.get_detection_rules(limit=limit)
         rules_cache = {rule.slug: rule for rule in rules if rule.slug}
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         incidents = await client.get_incidents(limit=limit, since=since, rules_cache=rules_cache)
 
         coverage = mapper.calculate_coverage(rules, incidents)
