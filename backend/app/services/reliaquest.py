@@ -30,11 +30,12 @@ class ReliaQuestClient:
         api_key: str,
         base_url: Optional[str] = None,
         timeout: float = 30.0,
+        cache_ttl: int = 300,
     ):
         self.api_key = api_key
         self.base_url = base_url or self.BASE_URL
         self.timeout = timeout
-        self._cache = TTLCache(maxsize=100, ttl=300)
+        self._cache = TTLCache(maxsize=100, ttl=cache_ttl)
 
     def _get_headers(self) -> dict:
         """Get request headers with authentication."""
@@ -96,6 +97,11 @@ class ReliaQuestClient:
             }
         }
         """
+        cache_key = f"rules:{limit}"
+        if cache_key in self._cache:
+            logger.debug("Returning cached detection rules")
+            return self._cache[cache_key]
+
         try:
             data = await self._execute_query(
                 query,
@@ -120,6 +126,7 @@ class ReliaQuestClient:
                     updated_at=node.get("updatedAt"),
                     raw_data=node,
                 ))
+            self._cache[cache_key] = rules
             return rules
         except Exception as e:
             logger.error(f"Failed to fetch detection rules: {e}")
@@ -185,6 +192,11 @@ class ReliaQuestClient:
         """
         if since is None:
             since = datetime.utcnow() - timedelta(days=30)
+
+        cache_key = f"incidents:{limit}:{since.date().isoformat()}"
+        if cache_key in self._cache:
+            logger.debug("Returning cached incidents")
+            return self._cache[cache_key]
 
         query = """
         query GetIncidents($earliest: DateTime) {
@@ -277,6 +289,7 @@ class ReliaQuestClient:
                     rule_version=rule_info.get("version") if rule_info else None,
                     raw_data=node,
                 ))
+            self._cache[cache_key] = incidents
             return incidents
         except Exception as e:
             logger.error(f"Failed to fetch incidents: {e}")

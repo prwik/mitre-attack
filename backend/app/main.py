@@ -5,6 +5,7 @@ A FastAPI backend that integrates with security tools (ReliaQuest, etc.)
 to generate ATT&CK Navigator layers for threat visualization.
 """
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    if settings.use_mock_data:
+        logger.warning("Running with mock data - set USE_MOCK_DATA=false for production")
+    yield
+    logger.info("Shutting down application")
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -42,6 +54,7 @@ app = FastAPI(
     """,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -61,20 +74,6 @@ app.include_router(router, prefix=settings.api_prefix, tags=["API"])
 async def root():
     """Redirect root to API documentation."""
     return RedirectResponse(url="/docs")
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Application startup handler."""
-    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
-    if settings.use_mock_data:
-        logger.warning("Running with mock data - set USE_MOCK_DATA=false for production")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Application shutdown handler."""
-    logger.info("Shutting down application")
 
 
 if __name__ == "__main__":

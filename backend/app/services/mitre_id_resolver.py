@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -66,7 +67,7 @@ class MitreIdResolver:
 
         # Use cached file if it exists and is less than 24 hours old
         if cache_file.exists():
-            age_hours = (os.path.getmtime(str(cache_file)) - os.path.getctime(str(cache_file))) / 3600
+            age_hours = (time.time() - os.path.getmtime(str(cache_file))) / 3600
             if age_hours < 24:
                 logger.info(f"Using cached STIX data from {cache_file}")
                 return str(cache_file)
