@@ -5,7 +5,6 @@ import json
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,22 +26,19 @@ class Settings(BaseSettings):
     # API settings
     api_prefix: str = "/api/v1"
 
-    # CORS settings
-    cors_origins: list[str] = ["http://localhost:4200", "http://localhost:3000"]
+    # CORS settings - stored as str to avoid pydantic-settings env parsing issues
+    cors_origins: str = "http://localhost:4200,http://localhost:3000"
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Handle both comma-separated strings and JSON arrays from env."""
-        if isinstance(v, str):
-            v = v.strip()
-            if v.startswith("["):
-                try:
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    pass
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse CORS origins from string (comma-separated or JSON array)."""
+        v = self.cors_origins.strip()
+        if v.startswith("["):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                pass
+        return [origin.strip() for origin in v.split(",") if origin.strip()]
 
     # ReliaQuest API settings
     reliaquest_api_key: str = ""
